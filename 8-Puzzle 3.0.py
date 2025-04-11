@@ -1,9 +1,9 @@
-import psutil  
+import psutil
 import time
 from collections import deque
 
-estado_objetivo = (1, 2, 3, 
-                   4, 5, 6, 
+estado_objetivo = (1, 2, 3,
+                   4, 5, 6,
                    7, 8, 0)  # Estado final esperado
 
 def gerar_sucessores(estado): # Gera os estados sucessores a partir do estado atual
@@ -11,10 +11,10 @@ def gerar_sucessores(estado): # Gera os estados sucessores a partir do estado at
     sucessores = []  # Lista para armazenar os estados sucessores
 
     movimentos= {
-        'Cima': -3,  
-        'Baixo': 3,  
-        'Esquerda': -1,  
-        'Direita': 1  
+        'Cima': -3,
+        'Baixo': 3,
+        'Esquerda': -1,
+        'Direita': 1
     }
 
     for movimento, deslocamento in movimentos.items():
@@ -24,62 +24,76 @@ def gerar_sucessores(estado): # Gera os estados sucessores a partir do estado at
            (movimento == 'Baixo' and indice_0 < 6) or \
            (movimento == 'Esquerda' and indice_0 % 3 != 0) or \
            (movimento == 'Direita' and indice_0 % 3 != 2):
-            
+
             novo_estado = list(estado)
             novo_estado[indice_0], novo_estado[novo_indice] = novo_estado[novo_indice], novo_estado[indice_0]
             sucessores.append((tuple(novo_estado), movimento))  # Adiciona o novo estado e movimento à lista de sucessores
-    
+
     return sucessores
 
-def resolver(estado_inical, algoritmo):
-    inicio= time.time() # Marca o tempo de início
-    processo= psutil.Process()  # Cria um objeto para monitorar o uso de RAM
+def resolver(estado_inicial, algoritmo):
+    inicio = time.time()
+    processo = psutil.Process()
 
-    # Define estrutura de dados com base no algoritmo escolhido
     if algoritmo == 'BFS':
-        fronteira= deque([(estado_inical, [], 0)]) # Fila
+        fronteira = deque([(estado_inicial, None, None, 0)])  # (estado, mov, pai, profundidade)
     elif algoritmo == 'DFS':
-        fronteira= [(estado_inical, [], 0)]	 # Pilha
-    elif algoritmo == "IDFS":
-        return idfs(estado_inical)  
-    
-    visitados= set() #Conjunto que evita ciclos
-    max_fringe_size= 0 # Variável para armazenar o tamanho máximo da fronteira
-    max_search_depth= 0 # Variável para armazenar a profundidade máxima da busca
+        fronteira = [(estado_inicial, None, None, 0)]
+    elif algoritmo == 'IDFS':
+        return idfs(estado_inicial)
+
+    visitados = set()
+    pais = {}  # estado: (pai, movimento)
+    max_fringe_size = 0
+    max_search_depth = 0
 
     while fronteira:
-        max_fringe_size= max(max_fringe_size, len(fronteira)) 
+        max_fringe_size = max(max_fringe_size, len(fronteira))
 
         if algoritmo == 'BFS':
-            estado_atual, caminho, profundidade= fronteira.popleft()
-        else: # algoritmo == 'DFS'
-            estado_atual, caminho, profundidade= fronteira.pop()
-        
+            estado_atual, movimento, pai, profundidade = fronteira.popleft()
+        else:  # DFS
+            estado_atual, movimento, pai, profundidade = fronteira.pop()
+
         if estado_atual in visitados:
             continue
         visitados.add(estado_atual)
 
+        # Mapeia o caminho reverso
+        if movimento is not None:
+            pais[estado_atual] = (pai, movimento)
+
         if estado_atual == estado_objetivo:
-            fim= time.time()
+            fim = time.time()
+
+            # Reconstrói caminho reverso
+            caminho = []
+            atual = estado_atual
+            while atual in pais:
+                atual, mov = pais[atual]
+                caminho.insert(0, mov)
+
             return {
-                "path_to_goal": caminho, # Caminho para o objetivo
-                "cost_of_path": len(caminho), # Custo do caminho
-                "searcjh_depth": profundidade, # Profundidade da busca
-                "nodes_expanded": len(visitados), # Nós expandidos
-                "fringe_size": len(fronteira), # Tamanho da fronteira
-                "max_fringe_size": max_fringe_size, # Tamanho máximo da fronteir
-                "max_search_depth": max_search_depth, # Profundidade máxima da busca
-                "runnung_time": round(fim - inicio, 8), # Tempo de execução
-                "max_ram_usage": round(processo.memory_info().rss / (1024 * 1024), 8) # Uso máximo de RAM em MB
+                "path_to_goal": caminho,
+                "cost_of_path": len(caminho),
+                "search_depth": profundidade,
+                "nodes_expanded": len(visitados),
+                "fringe_size": len(fronteira),
+                "max_fringe_size": max_fringe_size,
+                "max_search_depth": profundidade,
+                "runnung_time": round(fim - inicio, 8),
+                "max_ram_usage": round(processo.memory_info().rss / (1024 * 1024), 8)
             }
-        for novo_estado, movimeno in gerar_sucessores(estado_atual):
-            fronteira.append((novo_estado, caminho + [movimeno], profundidade + 1))
-            max_search_depth= max(max_search_depth, profundidade + 1)
-        
-    return None  # Retorna None se não encontrar solução
+
+        for novo_estado, mov in gerar_sucessores(estado_atual):
+            if novo_estado not in visitados:
+                fronteira.append((novo_estado, mov, estado_atual, profundidade + 1))
+                max_search_depth = max(max_search_depth, profundidade + 1)
+
+    return None
 
 def bfs(estado_inicial):
-    return resolver(estado_inicial, "BFS")  
+    return resolver(estado_inicial, "BFS")
 
 def dfs(estado_inicial):
     return resolver(estado_inicial, "DFS")
@@ -103,7 +117,7 @@ def idfs(estado_inicial):
 
         if resultado:
             fim = time.time()
-            resultado["nodes_expanded"] = nodes_expanded_total 
+            resultado["nodes_expanded"] = nodes_expanded_total
             resultado["fringe_size"] = fringe_size
             resultado["max_fringe_size"] = max_fringe_size
             resultado["max_search_depth"] = max_search_depth
@@ -112,7 +126,6 @@ def idfs(estado_inicial):
             return resultado
 
         limite += 1
-
 
 def dls(estado_atual, caminho, limite, visitados, fringe_size, max_fringe_size):
     if estado_atual == estado_objetivo:
@@ -140,7 +153,9 @@ def dls(estado_atual, caminho, limite, visitados, fringe_size, max_fringe_size):
             if resultado:
                 return resultado, fringe_size, max_fringe_size, profundidade
 
-puzzle = (1, 7, 3, 4, 6, 0, 8, 5, 2)
+    return None, fringe_size, max_fringe_size, profundidade_atual
+
+puzzle = (5, 2, 3, 1, 4, 7, 0, 8, 6)  # Coloque seu puzzle aqui;
 
 print("Executando BFS...")
 resultado_bfs = bfs(puzzle)
